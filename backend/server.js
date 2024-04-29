@@ -1,10 +1,12 @@
 import 'dotenv/config'
 import cors from 'cors'
-import './passport_conf.js' 
+import './passport_conf.js'
 import express from 'express'
 import passport from 'passport'
 import session from 'express-session'
 import { GoogleGenerativeAI } from "@google/generative-ai"
+import OpenAI from 'openai'
+
 
 // Access your API key as an environment variable (see "Set up your API key" above)
 const genAI = new GoogleGenerativeAI(process.env.geminiKey)
@@ -12,7 +14,7 @@ const genAI = new GoogleGenerativeAI(process.env.geminiKey)
 const app = express()
 const PORT = process.env.PORT
 
-app.use(cors({credentials: true, origin: true}))
+app.use(cors({ credentials: true, origin: true }))
 app.use(express.json())
 
 // express session 
@@ -60,13 +62,13 @@ app.get("/failed", (req, res) => {
 })
 
 // Success route if the authentication is successful
-app.get("/success",isLoggedIn, (req, res) => {
+app.get("/success", isLoggedIn, (req, res) => {
   console.log('You are logged in')
   res.send(`Welcome ${req.user.displayName}, your userID is ${req.user.id}`)
 })
 
 app.get("/userdata", (req, res) => {
-  res.json({username: req.user.displayName})
+  res.json({ username: req.user.displayName })
 })
 
 // Route that logs out the authenticated user  
@@ -83,17 +85,24 @@ app.get("/logout", (req, res) => {
   })
 })
 
-const talkToAi = async (text) => {
-  const model = genAI.getGenerativeModel({ model: "gemini-pro"})
-  const result = await model.generateContent(text)
-  const response = await result.response
-  return response.text()
+const openai = new OpenAI();
+
+async function talkToAi(text) {
+  const completion = await openai.chat.completions.create({
+    messages: [{ role: "system", content: `${text}` }],
+    model: "gpt-3.5-turbo",
+  });
+
+  let resp = completion.choices[0].message.content
+  return resp
 }
 
 app.post("/api", isLoggedIn, async (req, res) => {
   const text = req.body.text
   const resp = await talkToAi(text)
-  res.json({message: resp})
+  res.json({ message: resp })
 })
+
+
 
 app.listen(PORT, () => console.log("server running on port" + PORT))
